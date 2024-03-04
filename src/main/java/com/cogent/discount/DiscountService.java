@@ -1,5 +1,7 @@
 package com.cogent.discount;
 
+import com.cogent.ecommerce.model.Account;
+import com.cogent.ecommerce.model.Discount;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
@@ -9,50 +11,46 @@ import org.springframework.stereotype.Service;
 public class DiscountService {
 
     @Autowired
-    private DiscountJpaRepository discountJpaRepository;
-
-    //admin usage
-    public Discounts addDiscountToUser(Discounts discounts){
-        return discountJpaRepository.save(discounts);
-    }
+    private AccountJpaRepository accountJpaRepository;
 
     //getting discount for user if it exists for that user and code matches
-    public Discounts getDiscountAtUser(int id,String code){
+    public Discount getDiscountAtUser(int id,String code){
 
-        Discounts discount = discountJpaRepository.findByAccountIdAndDiscountCode(id,code).orElse(null);
-        if(discount!=null){
-            return discount;
+        Account account = accountJpaRepository.findById(id).orElse(null);
+        if(account!=null){
+            Discount discount = account.getDiscount();
+            if(discount==null){
+                return null;
+            }else{
+                if(discount.getDiscountCode().equals(code)){
+                    return discount;
+                }else {
+                    return null;
+                }
+            }
         }
         return null;
     }
     //use the discount: on order submit:
     public Boolean useDiscount(int id,String code){
 
-        Discounts discount = discountJpaRepository.findByAccountIdAndDiscountCode(id,code).orElse(null);
-        if(discount!=null){
-            discountJpaRepository.delete(discount);
-            return true;
+        Account account = accountJpaRepository.findById(id).orElse(null);
+        if(account!=null){
+            Discount discount = account.getDiscount();
+            if(discount==null){
+                return false;
+            }else{
+                if(discount.getDiscountCode().equals(code)){
+                    account.setDiscount(null);
+                    accountJpaRepository.save(account);
+                    return true;
+                }
+                return false;
+            }
         }
         return false;
     }
 
-
-    //email the discount to user!
-    @Value("${spring.mail.username}")
-    private String email;
-    @Autowired
-    private EmailService emailService;
-
-    public void sendDiscountEmail(String emailOfUser,Discounts discounts){
-        SimpleMailMessage discountEmail = new SimpleMailMessage();
-        discountEmail.setFrom(email);
-        discountEmail.setTo(emailOfUser);
-        discountEmail.setSubject("Discount Code!");
-        discountEmail.setText("Congrats! You have received a discount code to use on your next order!\n" +
-                "Use this code: \n"+
-                discounts.getDiscountCode()+"\nWith this code you can get "+discounts.getDiscountPercent()+"%" +
-                "off your next order!");
-    }
 
 
 }
